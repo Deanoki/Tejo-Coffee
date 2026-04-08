@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Stream Overlay Pro</title>
+
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background:#0a1628;
+  font-family:'Georgia', serif;
+  overflow:hidden;
+}
+
+/* CANVAS */
+canvas {
+  position:absolute;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+}
+
+/* BUTTON */
+.top-controls {
+  position:absolute;
+  top:20px;
+  left:50%;
+  transform:translateX(-50%);
+  display:flex;
+  gap:10px;
+  z-index:50;
+}
+
+button {
+  padding:6px 14px;
+  border:1px solid rgba(32,200,160,0.4);
+  background:rgba(6,14,26,0.8);
+  color:#20c8a0;
+  border-radius:20px;
+  cursor:pointer;
+}
+
+/* SCENE */
+.scene {
+  width:100%;
+  height:100%;
+  position:absolute;
+  opacity:1;
+  transition: opacity 0.8s ease;
+}
+
+.hidden {
+  opacity:0;
+  pointer-events:none;
+}
+
+/* TEXT */
+.main-text {
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  text-align:center;
+  z-index:10;
+}
+
+.text-starting {
+  font-size:64px;
+  background: linear-gradient(135deg,#e8dfc0,#f5f0e0,#b8d4c8);
+  -webkit-background-clip:text;
+  color:transparent;
+}
+
+.text-soon {
+  font-size:88px;
+  background: linear-gradient(135deg,#e8dfc0,#f5f0e0,#b8d4c8);
+  -webkit-background-clip:text;
+  color:transparent;
+}
+
+/* PLANET */
+.planet {
+  position:absolute;
+  bottom:-60px;
+  left:-60px;
+  width:240px;
+  height:240px;
+  border-radius:50%;
+  background: radial-gradient(circle at 30% 30%, #d4b88a,#8a6a3a 60%,#4a3520);
+}
+
+/* ORBIT */
+.orbit {
+  position:absolute;
+  top:50%;
+  left:50%;
+  width:420px;
+  height:200px;
+  border:1px solid rgba(32,200,160,0.6);
+  border-radius:50%;
+  transform:translate(-50%,-50%);
+  animation:spin 12s linear infinite;
+}
+
+@keyframes spin {
+  from { transform:translate(-50%,-50%) rotate(0); }
+  to { transform:translate(-50%,-50%) rotate(360deg); }
+}
+</style>
+</head>
+
+<body>
+
+<audio id="bg-music" loop></audio>
+
+<div class="top-controls">
+  <button onclick="switchTab('start')">Starting</button>
+  <button onclick="switchTab('end')">Ending</button>
+  <button onclick="changeMusic()">Ganti Lagu</button>
+</div>
+
+<input type="file" id="fileInput" accept="audio/*" style="display:none">
+
+<!-- START -->
+<div id="scene-start" class="scene">
+  <canvas id="space"></canvas>
+  <div class="planet"></div>
+  <div class="orbit"></div>
+
+  <div class="main-text">
+    <div class="text-starting">Starting</div>
+    <div class="text-soon">soon ✦</div>
+  </div>
+</div>
+
+<!-- END -->
+<div id="scene-end" class="scene hidden">
+  <canvas id="space2"></canvas>
+  <div class="planet"></div>
+  <div class="orbit"></div>
+
+  <div class="main-text">
+    <div class="text-soon">Stream Offline ✦</div>
+  </div>
+</div>
+
+<script>
+// ===== AUDIO =====
+const music = document.getElementById("bg-music");
+music.volume = 0.15;
+
+document.addEventListener("click", () => {
+  if (music.src) music.play();
+}, { once:true });
+
+function changeMusic(){
+  document.getElementById("fileInput").click();
+}
+
+document.getElementById("fileInput").addEventListener("change", e=>{
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const url = URL.createObjectURL(file);
+  music.src = url;
+
+  music.volume = 0;
+  music.play();
+
+  let v=0;
+  const fade=setInterval(()=>{
+    if(v<0.15){ v+=0.01; music.volume=v; }
+    else clearInterval(fade);
+  },100);
+});
+
+// ===== SPACE ENGINE =====
+function createSpace(canvasId){
+  const canvas = document.getElementById(canvasId);
+  const ctx = canvas.getContext("2d");
+
+  function resize(){
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener("resize", resize);
+
+  const layers = [
+    {count:50, speed:0.1, size:1},
+    {count:40, speed:0.2, size:1.5},
+    {count:30, speed:0.4, size:2}
+  ];
+
+  let stars = [];
+  layers.forEach(layer=>{
+    for(let i=0;i<layer.count;i++){
+      stars.push({
+        x:Math.random()*canvas.width,
+        y:Math.random()*canvas.height,
+        r:layer.size,
+        speed:layer.speed,
+        alpha:Math.random()
+      });
+    }
+  });
+
+  let shootingStars = [];
+
+  function spawnShootingStar(){
+    shootingStars.push({
+      x:Math.random()*canvas.width,
+      y:Math.random()*canvas.height/2,
+      len:200,
+      speed:6,
+      life:0
+    });
+  }
+
+  setInterval(()=>{
+    if(Math.random()>0.7) spawnShootingStar();
+  },2000);
+
+  function drawNebula(){
+    const gradient = ctx.createRadialGradient(
+      canvas.width/2, canvas.height/2, 100,
+      canvas.width/2, canvas.height/2, canvas.width/1.2
+    );
+
+    gradient.addColorStop(0,"rgba(32,200,160,0.05)");
+    gradient.addColorStop(1,"transparent");
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+  }
+
+  function animate(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    drawNebula();
+
+    stars.forEach(s=>{
+      s.y += s.speed;
+      if(s.y > canvas.height) s.y = 0;
+
+      ctx.beginPath();
+      ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+      ctx.fillStyle = "rgba(255,255,255,"+s.alpha+")";
+      ctx.fill();
+    });
+
+    shootingStars.forEach((s,i)=>{
+      ctx.strokeStyle="white";
+      ctx.beginPath();
+      ctx.moveTo(s.x,s.y);
+      ctx.lineTo(s.x - s.len, s.y + s.len/2);
+      ctx.stroke();
+
+      s.x += s.speed;
+      s.y += s.speed/2;
+      s.life++;
+
+      if(s.life>30) shootingStars.splice(i,1);
+    });
+
+    requestAnimationFrame(animate);
+  }
+
+  animate();
+}
+
+createSpace("space");
+createSpace("space2");
+
+// ===== FADE SWITCH =====
+function switchTab(tab){
+  const start = document.getElementById("scene-start");
+  const end = document.getElementById("scene-end");
+
+  if(tab === "start"){
+    end.classList.add("hidden");
+    setTimeout(()=> start.classList.remove("hidden"), 200);
+  } else {
+    start.classList.add("hidden");
+    setTimeout(()=> end.classList.remove("hidden"), 200);
+  }
+}
+</script>
+
+</body>
+</html>
